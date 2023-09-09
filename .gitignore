@@ -1,0 +1,5 @@
+#my ignore
+node_modules
+.mynotes
+.env
+
