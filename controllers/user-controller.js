@@ -41,7 +41,7 @@ const UserController = {
       .catch(err => res.status(500).json(err));
   },
 
-// Delete user by ID
+// Delete user by ID and assiciated thoughts and reactions when user is deleted
 async deleteUserById(req, res) {
   try {
       // Find the user by the given userId
