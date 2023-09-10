@@ -1,7 +1,7 @@
 const { Thought, User, Reaction } = require('../models');
 const {Types} = require('mongoose');
 
-// Define the ThoughtController object, which contains methods for handling various API requests related to thoughts
+// Handler for the "get all thoughts" API endpoint
 const ThoughtController = {
   async getAllThoughts(req, res) {
     try {
@@ -12,7 +12,9 @@ const ThoughtController = {
     }
   },
 
-  // Handler for the "get thought by ID" API endpoint
+  
+
+  // Get thought by ID
   async getThoughtsById(req, res) {
     try {
       const thought = await Thought.findOne({_id:req.params.thoughtId});
@@ -25,17 +27,33 @@ const ThoughtController = {
       res.status(500).json(err);
     }
   },
-  // Handler for the "create thought" API endpoint
+  
+  // Create a thought
+
   async createThought(req, res) {
     try {
-      const thought = await Thought.create(req.body);
-      res.status(201).json(thought);
+        const newThought = await Thought.create(req.body);
+        
+        // Push the new thought's _id to the user's thoughts array
+        const user = await User.findByIdAndUpdate(
+            req.body.userId, 
+            { $push: { thoughts: newThought._id } },
+            { new: true }
+        );
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        res.json({ message: 'Thought added successfully', thought: newThought });
     } catch (err) {
-      res.status(500).json(err);
+        res.status(500).json(err);
     }
-  },
+},
+
   
-  // Handler for the "delete thought" API endpoint
+  // Delete thought by ID
+  
   async deleteThought(req,res) {
     try {
         const thought = await Thought.findByIdAndDelete({_id:req.params.thoughtId});
@@ -45,7 +63,8 @@ const ThoughtController = {
     }
   },
 
-  // Handler for the "update thought by ID" API endpoint
+  
+  // Update thought by ID
   async updateThoughtById(req, res) {
     try {
       const thought = await Thought.findByIdAndUpdate(req.params.thoughtId, req.body, {
@@ -61,7 +80,7 @@ const ThoughtController = {
     }
   },
 
-  // Handler for the "create reaction" API endpoint
+  // Add a reaction to a thought
   async createReaction(req, res) {
       try {
         const thought = await Thought.findOneAndUpdate(
@@ -75,7 +94,8 @@ const ThoughtController = {
     }
   },
 
-// Handler for the "delete reaction" API endpoint
+
+// Remove a reaction from a thought
   async deleteReaction(req, res) {
       try {
         const thought = await Thought.findOneAndUpdate(
@@ -91,5 +111,6 @@ const ThoughtController = {
   },
 
 };
-// Export ThoughtController
+
+// Export module
 module.exports = ThoughtController;

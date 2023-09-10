@@ -46,6 +46,18 @@ const userSchema = new Schema(
 userSchema.virtual('friendCount').get(function(){
     return this.friends.length;
 });
+
+// Cascade delete thoughts when a user is deleted
+userSchema.pre('remove', async function(next) {
+  try {
+      // Remove all thoughts associated with this user
+      await Thought.deleteMany({ _id: { $in: this.thoughts } });
+      next();
+  } catch (err) {
+      next(err);
+  }
+});
+
 // Creating the User model from the userSchema
 const User = model('User',userSchema)
 // Exporting the User model as a module

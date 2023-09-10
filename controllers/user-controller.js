@@ -1,30 +1,18 @@
-const { User } = require('../models');
+const { User, Thought } = require('../models');
 
 const UserController = {
-  // 1. Get all users
+  // Get all users
   getAllUsers(req, res) {
     User.find({})
+      .populate('thoughts')
       .then(userData => res.json(userData))
       .catch(err => res.status(500).json(err));
   },
 
-  // 2. Get one user by ID
+  // Get user by ID
   getUserById(req, res) {
     User.findById(req.params.userId)
-      .then(userData => res.json(userData))
-      .catch(err => res.status(500).json(err));
-  },
-  
-  // 3. Create a user
-  createUser(req, res) {
-    User.create(req.body)
-      .then(userData => res.json(userData))
-      .catch(err => res.status(500).json(err));
-  },
-
-  // 4. Update user by ID
-  updateUserById(req, res) {
-    User.findOneAndUpdate(req.params.id, req.body, { new: true })
+      .populate('thoughts')
       .then(userData => {
         if (!userData) {
           return res.status(404).json({ message: 'User not found' });
@@ -34,23 +22,67 @@ const UserController = {
       .catch(err => res.status(500).json(err));
   },
 
-  // 5. Delete user
-  deleteUserById(req, res) {
-    User.findOneAndDelete(req.params.id)
+  // Create a user
+  createUser(req, res) {
+    User.create(req.body)
+      .then(userData => res.json(userData))
+      .catch(err => res.status(500).json(err));
+  },
+
+  // Update user by ID
+  updateUserById(req, res) {
+    User.findOneAndUpdate({ _id: req.params.userId }, req.body, { new: true })
       .then(userData => {
         if (!userData) {
           return res.status(404).json({ message: 'User not found' });
         }
-        res.json({ message: 'User deleted successfully' });
+        res.json(userData);
       })
       .catch(err => res.status(500).json(err));
   },
 
-  // 6. Add friend to user's friend list
+// Delete user by ID
+async deleteUserById(req, res) {
+  try {
+      // Find the user by the given userId
+      const user = await User.findById(req.params.userId);
+      if (!user) {
+          return res.status(404).json({ message: 'User not found' });
+      }
+
+      // Retrieve all of the user's thoughts
+      const thoughts = await Thought.find({ _id: { $in: user.thoughts } });
+      const thoughtIds = thoughts.map(thought => thought._id);
+
+      // Remove reactions from each thought
+      const removeReactionsPromises = thoughts.map(async (thought) => {
+          thought.reactions = [];
+          await thought.save();
+      });
+
+      // Wait for all reactions to be removed
+      await Promise.all(removeReactionsPromises);
+
+      // Delete all of the user's thoughts
+      await Thought.deleteMany({ _id: { $in: thoughtIds } });
+
+      // Finally, delete the user
+      await User.deleteOne({ _id: req.params.userId });
+
+      res.json({ message: 'User and associated thoughts & reactions deleted successfully' });
+  } catch (err) {
+      console.error("Error during user deletion:", err);
+      res.status(500).json(err);
+  }
+},
+
+
+
+  // Add a friend to user's friend list
   addFriend(req, res) {
     User.findOneAndUpdate(
       { _id: req.params.userId },
-      { $addToSet: { friends: req.body.friendId || req.params.friendId} },
+      { $addToSet: { friends: req.body.friendId || req.params.friendId } },
       { new: true }
     )
       .then(userData => {
@@ -62,9 +94,7 @@ const UserController = {
       .catch(err => res.status(500).json(err));
   },
 
-
-  // NEW 7. Remove friend from user's friend list
-
+  // Remove a friend from user's friend list
   removeFriend({ params }, res) {
     User.findOneAndUpdate(
       { _id: params.userId },
@@ -75,9 +105,7 @@ const UserController = {
         if (!dbUserData) {
           return res.status(404).json({ message: "No user with this id!" });
         }
-        // check if friend was removed
         const removed = !dbUserData.friends.includes(params.friendId);
-        // return response with appropriate message
         if (removed) {
           res.json({ message: "Friend removed successfully!", dbUserData });
         } else {
@@ -85,9 +113,7 @@ const UserController = {
         }
       })
       .catch((err) => res.status(400).json(err));
-  },
+  }
 };
 
-
-// Export UserController
 module.exports = UserController;
